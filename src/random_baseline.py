@@ -18,7 +18,7 @@ OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 def build_env(game_file: str, max_steps: int = 30):
     request_infos = textworld.EnvInfos(
-        admissible_commands=True,
+        admissible_commands=True,  # 环境根据当前状态动态生成的候选动作集合
         description=True,
         inventory=True,
         objective=True,
@@ -61,7 +61,7 @@ def main() -> None:
             print(f"[step {step_idx}] no admissible commands, stop")
             break
 
-        action = random.choice(admissible)
+        action = random.choice(admissible) # 后续替换这一行，目前是从候选动作里随机选
         action_readable = prettify_text(action)
         print(f"[step {step_idx}] action: {action_readable}")
 
@@ -77,7 +77,7 @@ def main() -> None:
             "won": infos.get("won", False),
             "lost": infos.get("lost", False),
             "num_admissible": len(infos.get("admissible_commands", [])),
-        }
+        }  # 记录这一步的动作、观察、分数、是否结束、是否完成、当前合法动作数
 
         readable_record = {
             "step": step_idx,
