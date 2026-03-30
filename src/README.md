@@ -19,3 +19,17 @@ $\text{observation}_t, A_t \xrightarrow{\text{random.choice}(A_t)} a_t \xrightar
 
 最后从最高分动作里选一个，如果有多个并列第一，就随机挑一个。
 但现在的问题是从 16 步开始反复出现 examine alarmclock@(-0.82,+0.86,-1.36) 这一高分动作，需要进一步修改。
+
+3、修改 rule_based_baseline 后，agent 在遇到 alarmclock 后 stage 会从 search_both 切换为 search_tool, 但遇到 desklamp 后有会出现在 use desklamp 这一步自旋且跳出自旋后又会局部动作空间里在找最高分垃圾动作导致最终任务无法完成。具体改动如下表:
+
+| 模块  | 原版 | 改进版 | 作用 |
+| ---- | --- | ----- | ---- |
+| 任务理解 | 只抽关键词 `alarmclock/desklamp` | `parse_task()` 解析成 `verb=examine, target=alarmclock, tool=desklamp`                                                         | 从“词匹配”升级到“结构化任务”                  |
+| 策略状态 | 没有阶段                        | `infer_stage()`：`search_both / search_target / search_tool / solve_with_tool`                                               | 不再一条规则打天下                         |
+| 记忆   | 只记 `visited_locations`      | 新增 `seen_entities`、`examined_entities`                                                                                      | 知道“目标/工具见过没”“这个东西 examine 过几次”    |
+| 重复控制 | `recent_repeat(-6)` 很弱      | `same_as_last(-14)`、`recent_repeat(-8)`、`triple_repeat_risk(-18)`                                                           | 明显增强反自旋能力                         |
+| 停滞处理 | 没有                          | `stagnation_count` + `break_stagnation_go(+16)`                                                                             | Observation 不变时强制探索               |
+| 任务特化 | 只有“with 时 prefer use”       | 增加 `search_tool_hit(+28)`、`already_have_target_keep_searching_tool(-18)`、`avoid_taking_target_for_examine_with_tool(-12)` 等 | 更贴合 `examine X with Y`            |
+| 工程运行 | 容易受当前目录影响                   | 增加 `PROJECT_ROOT` / `sys.path` 处理                                                                                           | 缓解 `No module named src` 这类运行路径问题 |
+
+- 总结下来，baseline 从 “无状态启发式” 推进到了 “有状态但收尾很弱的启发式规划器”。下一步需要把 solve_with_tool 真正做成一个子计划。
